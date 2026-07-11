@@ -1,16 +1,17 @@
 """Amenity-related API endpoints."""
 from flask_restx import Namespace, Resource, fields
+from flask_jwt_extended import jwt_required, get_jwt
 from app.services import facade
 
 api = Namespace('amenities', description='Amenity operations')
 
-# Define the amenity model for input validation and documentation
 amenity_model = api.model('Amenity', {
     'name': fields.String(required=True, description='Name of the amenity')
 })
 
 
 def _serialize(amenity):
+    """Serialize an amenity object to a dictionary."""
     return {
         'id': amenity.id,
         'name': amenity.name
@@ -19,24 +20,26 @@ def _serialize(amenity):
 
 @api.route('/')
 class AmenityList(Resource):
+    @jwt_required()
     @api.expect(amenity_model, validate=True)
     @api.response(201, 'Amenity successfully created')
+    @api.response(403, 'Admin privileges required')
     @api.response(400, 'Invalid input data')
     def post(self):
-        """Register a new amenity"""
-        amenity_data = api.payload
+        """Register a new amenity (admin only)"""
+        if not get_jwt().get('is_admin'):
+            return {'error': 'Admin privileges required'}, 403
+
         try:
-            new_amenity = facade.create_amenity(amenity_data)
+            new_amenity = facade.create_amenity(api.payload)
         except ValueError as e:
             return {'error': str(e)}, 400
-
         return _serialize(new_amenity), 201
 
     @api.response(200, 'List of amenities retrieved successfully')
     def get(self):
         """Retrieve a list of all amenities"""
-        amenities = facade.get_all_amenities()
-        return [_serialize(amenity) for amenity in amenities], 200
+        return [_serialize(a) for a in facade.get_all_amenities()], 200
 
 
 @api.route('/<amenity_id>')
@@ -50,20 +53,24 @@ class AmenityResource(Resource):
             return {'error': 'Amenity not found'}, 404
         return _serialize(amenity), 200
 
+    @jwt_required()
     @api.expect(amenity_model, validate=True)
     @api.response(200, 'Amenity updated successfully')
+    @api.response(403, 'Admin privileges required')
     @api.response(404, 'Amenity not found')
     @api.response(400, 'Invalid input data')
     def put(self, amenity_id):
-        """Update an amenity's information"""
+        """Update an amenity's information (admin only)"""
+        if not get_jwt().get('is_admin'):
+            return {'error': 'Admin privileges required'}, 403
+
         amenity = facade.get_amenity(amenity_id)
         if not amenity:
             return {'error': 'Amenity not found'}, 404
 
-        amenity_data = api.payload
         try:
-            facade.update_amenity(amenity_id, amenity_data)
+            facade.update_amenity(amenity_id, api.payload)
         except ValueError as e:
             return {'error': str(e)}, 400
-
         return {'message': 'Amenity updated successfully'}, 200
+    
