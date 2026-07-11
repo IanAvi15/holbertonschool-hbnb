@@ -2,6 +2,7 @@
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services import facade
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
 api = Namespace('reviews', description='Review operations')
 
@@ -112,3 +113,43 @@ class ReviewResource(Resource):
         facade.delete_review(review_id)
         return {'message': 'Review deleted successfully'}, 200
     
+    @jwt_required()
+    @api.expect(review_update_model, validate=True)
+    @api.response(200, 'Review updated successfully')
+    @api.response(403, 'Unauthorized action')
+    @api.response(404, 'Review not found')
+    @api.response(400, 'Invalid input data')
+    def put(self, review_id):
+        """Update a review (author or admin)"""
+        current_user_id = get_jwt_identity()
+        is_admin = get_jwt().get('is_admin', False)
+
+        review = facade.get_review(review_id)
+        if not review:
+            return {'error': 'Review not found'}, 404
+        if not is_admin and review.user.id != current_user_id:
+            return {'error': 'Unauthorized action'}, 403
+
+        try:
+            facade.update_review(review_id, api.payload)
+        except ValueError as e:
+            return {'error': str(e)}, 400
+        return {'message': 'Review updated successfully'}, 200
+
+    @jwt_required()
+    @api.response(200, 'Review deleted successfully')
+    @api.response(403, 'Unauthorized action')
+    @api.response(404, 'Review not found')
+    def delete(self, review_id):
+        """Delete a review (author or admin)"""
+        current_user_id = get_jwt_identity()
+        is_admin = get_jwt().get('is_admin', False)
+
+        review = facade.get_review(review_id)
+        if not review:
+            return {'error': 'Review not found'}, 404
+        if not is_admin and review.user.id != current_user_id:
+            return {'error': 'Unauthorized action'}, 403
+
+        facade.delete_review(review_id)
+        return {'message': 'Review deleted successfully'}, 200

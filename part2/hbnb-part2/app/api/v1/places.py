@@ -1,6 +1,6 @@
 """Place-related API endpoints."""
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from app.services import facade
 
 api = Namespace('places', description='Place operations')
@@ -114,6 +114,7 @@ class PlaceList(Resource):
     @api.expect(place_input_model, validate=True)
     @api.response(201, 'Place successfully created')
     @api.response(400, 'Invalid input data')
+    @api.response(401, 'Authentication required')
     def post(self):
         """Register a new place (authenticated users only)"""
         current_user_id = get_jwt_identity()
@@ -150,17 +151,18 @@ class PlaceResource(Resource):
     @api.response(404, 'Place not found')
     @api.response(400, 'Invalid input data')
     def put(self, place_id):
-        """Update a place's information (owner only)"""
+        """Update a place's information (owner or admin)"""
         current_user_id = get_jwt_identity()
+        is_admin = get_jwt().get('is_admin', False)
+
         place = facade.get_place(place_id)
         if not place:
             return {'error': 'Place not found'}, 404
-        if place.owner.id != current_user_id:
+        if not is_admin and place.owner.id != current_user_id:
             return {'error': 'Unauthorized action'}, 403
 
-        place_data = api.payload
         try:
-            facade.update_place(place_id, place_data)
+            facade.update_place(place_id, api.payload)
         except ValueError as e:
             return {'error': str(e)}, 400
         return {'message': 'Place updated successfully'}, 200
@@ -176,4 +178,3 @@ class PlaceReviewList(Resource):
         if reviews is None:
             return {'error': 'Place not found'}, 404
         return [_serialize_review_summary(r) for r in reviews], 200
-    
