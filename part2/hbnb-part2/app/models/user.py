@@ -15,6 +15,9 @@ class User(BaseModel):
     password = db.Column(db.String(128), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
 
+    places = db.relationship('Place', backref='owner', lazy=True)
+    reviews = db.relationship('Review', backref='user', lazy=True)
+
     def __init__(self, first_name, last_name, email,
                  password="", is_admin=False):
         """Initialize a User instance.
@@ -37,15 +40,7 @@ class User(BaseModel):
 
     @staticmethod
     def _validate_name(value, field_name):
-        """Validate that a name field is a non-empty string under 50 chars.
-
-        Args:
-            value (str): The value to validate.
-            field_name (str): The field name for error messages.
-
-        Returns:
-            str: The validated value.
-        """
+        """Validate that a name field is a non-empty string under 50 chars."""
         if not value or not isinstance(value, str):
             raise ValueError(f"{field_name} is required")
         if len(value) > 50:
@@ -54,14 +49,7 @@ class User(BaseModel):
 
     @staticmethod
     def _validate_email(email):
-        """Validate that the email is a properly formatted string.
-
-        Args:
-            email (str): The email address to validate.
-
-        Returns:
-            str: The validated email address.
-        """
+        """Validate that the email is a properly formatted string."""
         if not email or not isinstance(email, str):
             raise ValueError("email is required")
         pattern = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -70,20 +58,9 @@ class User(BaseModel):
         return email
 
     def hash_password(self, password):
-        """Hash a plaintext password and store it in the password field.
-
-        Args:
-            password (str): The plaintext password to hash.
-        """
+        """Hash a plaintext password and store it in the password field."""
         self.password = bcrypt.generate_password_hash(password).decode('utf-8')
 
     def verify_password(self, password):
-        """Verify a plaintext password against the stored hashed password.
-
-        Args:
-            password (str): The plaintext password to verify.
-
-        Returns:
-            bool: True if the password matches, False otherwise.
-        """
+        """Verify a plaintext password against the stored hashed password."""
         return bcrypt.check_password_hash(self.password, password)

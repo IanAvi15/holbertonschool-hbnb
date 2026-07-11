@@ -2,6 +2,15 @@
 from app import db
 from app.models.base_model import BaseModel
 
+# Association table for Place <-> Amenity many-to-many relationship
+place_amenity = db.Table(
+    'place_amenity',
+    db.Column('place_id', db.String(36),
+              db.ForeignKey('places.id'), primary_key=True),
+    db.Column('amenity_id', db.String(36),
+              db.ForeignKey('amenities.id'), primary_key=True)
+)
+
 
 class Place(BaseModel):
     """Represent a place listing with location and pricing details."""
@@ -13,6 +22,13 @@ class Place(BaseModel):
     price = db.Column(db.Float, nullable=False)
     latitude = db.Column(db.Float, nullable=False)
     longitude = db.Column(db.Float, nullable=False)
+    owner_id = db.Column(db.String(36), db.ForeignKey('users.id'),
+                         nullable=False)
+
+    reviews = db.relationship('Review', backref='place', lazy=True)
+    amenities = db.relationship('Amenity', secondary=place_amenity,
+                                lazy='subquery',
+                                backref=db.backref('places', lazy=True))
 
     def __init__(self, title, price, latitude, longitude,
                  owner, description=None):
@@ -32,9 +48,7 @@ class Place(BaseModel):
         self.price = self._validate_price(price)
         self.latitude = self._validate_latitude(latitude)
         self.longitude = self._validate_longitude(longitude)
-        self.owner = owner
-        self.reviews = []
-        self.amenities = []
+        self.owner_id = owner.id
 
     @staticmethod
     def _validate_title(value):
@@ -72,15 +86,12 @@ class Place(BaseModel):
             raise ValueError("longitude must be between -180.0 and 180.0")
         return float(value)
 
-    def add_review(self, review):
-        """Add a review to the place."""
-        self.reviews.append(review)
+    def add_amenity(self, amenity):
+        """Add an amenity to the place."""
+        if amenity not in self.amenities:
+            self.amenities.append(amenity)
 
     def remove_review(self, review):
         """Remove a review from the place, if present."""
         if review in self.reviews:
             self.reviews.remove(review)
-
-    def add_amenity(self, amenity):
-        """Add an amenity to the place."""
-        self.amenities.append(amenity)
