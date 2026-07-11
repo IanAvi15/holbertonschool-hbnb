@@ -1,11 +1,19 @@
 """User entity class."""
 import re
+from app import db, bcrypt
 from app.models.base_model import BaseModel
-from app import bcrypt
 
 
 class User(BaseModel):
     """Represent a user with secure password hashing via bcrypt."""
+
+    __tablename__ = 'users'
+
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    password = db.Column(db.String(128), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
     def __init__(self, first_name, last_name, email,
                  password="", is_admin=False):
@@ -26,8 +34,6 @@ class User(BaseModel):
         self.password = ""
         if password:
             self.hash_password(password)
-        self.places = []
-        self.reviews = []
 
     @staticmethod
     def _validate_name(value, field_name):
@@ -81,16 +87,3 @@ class User(BaseModel):
             bool: True if the password matches, False otherwise.
         """
         return bcrypt.check_password_hash(self.password, password)
-
-    def add_place(self, place):
-        """Add a place owned by this user."""
-        self.places.append(place)
-
-    def add_review(self, review):
-        """Add a review written by this user."""
-        self.reviews.append(review)
-
-    def remove_review(self, review):
-        """Remove a review from this user's list, if present."""
-        if review in self.reviews:
-            self.reviews.remove(review)

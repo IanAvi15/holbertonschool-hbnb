@@ -1,17 +1,24 @@
 """Base model providing shared id and timestamp attributes."""
 import uuid
 from datetime import datetime
+from app import db
 
 
-class BaseModel:
-    def __init__(self):
-        self.id = str(uuid.uuid4())
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
+class BaseModel(db.Model):
+    """Abstract base model with shared id and timestamp columns."""
+
+    __abstract__ = True
+
+    id = db.Column(db.String(36), primary_key=True,
+                   default=lambda: str(uuid.uuid4()))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
 
     def save(self):
-        """Update the updated_at timestamp whenever the object is modified."""
-        self.updated_at = datetime.now()
+        """Update the updated_at timestamp and commit to the database."""
+        self.updated_at = datetime.utcnow()
+        db.session.commit()
 
     def update(self, data):
         """Update the attributes of the object based on a dictionary."""
