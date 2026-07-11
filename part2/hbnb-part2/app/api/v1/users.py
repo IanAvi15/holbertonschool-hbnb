@@ -8,11 +8,19 @@ api = Namespace('users', description='User operations')
 user_model = api.model('User', {
     'first_name': fields.String(required=True, description='First name of the user'),
     'last_name': fields.String(required=True, description='Last name of the user'),
-    'email': fields.String(required=True, description='Email of the user')
+    'email': fields.String(required=True, description='Email of the user'),
+    'password': fields.String(required=True, description='Password of the user')
+})
+
+update_model = api.model('UserUpdate', {
+    'first_name': fields.String(description='First name of the user'),
+    'last_name': fields.String(description='Last name of the user'),
+    'email': fields.String(description='Email of the user')
 })
 
 
 def _serialize(user):
+    """Serialize a user object to a dictionary, excluding the password."""
     return {
         'id': user.id,
         'first_name': user.first_name,
@@ -60,7 +68,7 @@ class UserResource(Resource):
             return {'error': 'User not found'}, 404
         return _serialize(user), 200
 
-    @api.expect(user_model, validate=True)
+    @api.expect(update_model, validate=True)
     @api.response(200, 'User successfully updated')
     @api.response(404, 'User not found')
     @api.response(400, 'Invalid input data')
@@ -72,8 +80,6 @@ class UserResource(Resource):
 
         user_data = api.payload
 
-        # If email is being changed, make sure it doesn't collide
-        # with another existing user's email.
         new_email = user_data.get('email')
         if new_email and new_email != user.email:
             existing_user = facade.get_user_by_email(new_email)
